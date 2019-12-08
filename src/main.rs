@@ -35,7 +35,10 @@ fn auto_gain_i16(mut s: &mut [u8], gain: f32, gain_acc: &mut f32) {
         .for_each(|v| s.write_i16::<LittleEndian>(v.floor() as i16).unwrap());
 }
 
-fn amain(rx_addr: &str, tx_addr: &str, gain: f32) -> Result<()> {
+fn amain<T>(rx_addr: T, tx_addrs: &[T], gain: f32) -> Result<()>
+where
+    T: ToSocketAddrs,
+{
     let socket = UdpSocket::bind(rx_addr)?;
     let mut buf = [0; 1500];
     let mut gain_acc: f32 = 1.0;
@@ -49,7 +52,9 @@ fn amain(rx_addr: &str, tx_addr: &str, gain: f32) -> Result<()> {
                 println!("Invalid format type {:?}", v.vban_header.data_type());
             }
         }
-        socket.send_to(&buf[..n], tx_addr)?;
+        for t in tx_addrs {
+            socket.send_to(&buf[..n], t)?;
+        }
     }
 }
 
@@ -76,6 +81,7 @@ fn main() {
                 .long("remote")
                 .help("Remote address")
                 .required(true)
+                .multiple(true)
                 .takes_value(true)
                 .validator(socket_addrs_validator),
         )
@@ -95,9 +101,12 @@ fn main() {
         .get_matches();
 
     let rx_addr = matches.value_of("listen").unwrap();
-    let tx_addr = matches.value_of("remote").unwrap();
+    let tx_addrs = matches
+        .values_of("remote")
+        .unwrap()
+        .collect::<std::boxed::Box<[_]>>();
     let gain_db = f32::from_str(matches.value_of("gain").unwrap()).unwrap();
     let gain = (10.0 as f32).powf(gain_db / 20.0);
 
-    amain(rx_addr, tx_addr, gain).unwrap();
+    amain(rx_addr, tx_addrs.as_ref(), gain).unwrap();
 }
