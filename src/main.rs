@@ -1,10 +1,9 @@
 extern crate vban_autogain;
 
-use async_std::io::Result;
-use async_std::net::{ToSocketAddrs, UdpSocket};
-use async_std::task;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use clap::{App, Arg};
+use std::io::Result;
+use std::net::{ToSocketAddrs, UdpSocket};
 use std::str::FromStr;
 use vban_autogain::vban::VbanPacket;
 
@@ -36,12 +35,12 @@ fn auto_gain_i16(mut s: &mut [u8], gain: f32, gain_acc: &mut f32) {
         .for_each(|v| s.write_i16::<LittleEndian>(v.floor() as i16).unwrap());
 }
 
-async fn amain(rx_addr: &str, tx_addr: &str, gain: f32) -> Result<()> {
-    let socket = UdpSocket::bind(rx_addr).await?;
+fn amain(rx_addr: &str, tx_addr: &str, gain: f32) -> Result<()> {
+    let socket = UdpSocket::bind(rx_addr)?;
     let mut buf = [0; 1500];
     let mut gain_acc: f32 = 1.0;
     loop {
-        let n = socket.recv(&mut buf).await?;
+        let n = socket.recv(&mut buf)?;
         {
             let v = VbanPacket::from_mut_slice(&mut buf[..n])?;
             if v.vban_header.data_type() == vban_autogain::vban::DataType::I16 {
@@ -50,18 +49,14 @@ async fn amain(rx_addr: &str, tx_addr: &str, gain: f32) -> Result<()> {
                 println!("Invalid format type {:?}", v.vban_header.data_type());
             }
         }
-        socket.send_to(&buf[..n], tx_addr).await?;
+        socket.send_to(&buf[..n], tx_addr)?;
     }
 }
 
 fn main() {
-    let socket_addrs_validator = |s: String| {
-        task::block_on(async {
-            match s.to_socket_addrs().await {
-                Ok(_) => core::result::Result::Ok(()),
-                Err(s) => core::result::Result::Err(s.to_string()),
-            }
-        })
+    let socket_addrs_validator = |s: String| match s.to_socket_addrs() {
+        Ok(_) => core::result::Result::Ok(()),
+        Err(s) => core::result::Result::Err(s.to_string()),
     };
 
     let matches = App::new("VBAN Autogain")
@@ -104,7 +99,5 @@ fn main() {
     let gain_db = f32::from_str(matches.value_of("gain").unwrap()).unwrap();
     let gain = (10.0 as f32).powf(gain_db / 20.0);
 
-    task::block_on(async {
-        amain(rx_addr, tx_addr, gain).await.unwrap();
-    })
+    amain(rx_addr, tx_addr, gain).unwrap();
 }
