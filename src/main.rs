@@ -1,4 +1,5 @@
-extern crate vban_autogain;
+#[macro_use]
+extern crate clap;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use clap::{App, Arg};
@@ -66,6 +67,7 @@ fn main() {
 
     let matches = App::new("VBAN Autogain")
         .author("c000")
+        .version(crate_version!())
         .arg(
             Arg::with_name("listen")
                 .short("l")
