@@ -20,7 +20,7 @@ fn main() {
                 .short("l")
                 .long("listen")
                 .help("Listen address")
-                .default_value("0.0.0.0:6900")
+                .default_value("0.0.0.0:6980")
                 .takes_value(true)
                 .validator(socket_addrs_validator),
         )
@@ -39,7 +39,7 @@ fn main() {
                 .short("g")
                 .long("gain")
                 .help("Gain per sample")
-                .default_value("1e-5")
+                .default_value("1e-3")
                 .takes_value(true)
                 .validator(|s| {
                     f32::from_str(s.as_str())
