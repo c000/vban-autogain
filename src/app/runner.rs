@@ -1,12 +1,19 @@
 use std::{
-    error, io,
+    error,
+    fmt::Write,
+    io,
     net::{SocketAddr, ToSocketAddrs},
     result,
     sync::Arc,
     vec::Vec,
 };
 
-use tokio::{io::AsyncBufReadExt, net::UdpSocket, sync::RwLock, task};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt},
+    net::UdpSocket,
+    sync::RwLock,
+    task,
+};
 
 use super::gain;
 use crate::vban;
@@ -80,13 +87,62 @@ impl Runner {
     }
 
     pub async fn repl(&self) -> io::Result<()> {
-        let mut lines = tokio::io::BufReader::new(tokio::io::stdin()).lines();
+        let app = clap::App::new("")
+            .subcommand(clap::SubCommand::with_name("exit"))
+            .subcommand(clap::SubCommand::with_name("info"));
 
+        let mut lines = tokio::io::BufReader::new(tokio::io::stdin()).lines();
+        let mut stdout = tokio::io::stdout();
+
+        stdout.write_all(b"> ").await?;
+        stdout.flush().await?;
         while let Some(line) = lines.next_line().await? {
-            if line == "exit" {
+            let words = shell_words::split(line.as_ref()).expect("Failed to split repl words");
+            let matches = app
+                .clone()
+                .get_matches_from(std::iter::once(String::new()).chain(words));
+
+            let cont = match matches.subcommand() {
+                ("exit", _) => false,
+                ("info", _) => {
+                    stdout.write_all(self.info().await.as_bytes()).await?;
+                    true
+                }
+                _ => {
+                    let mut b = Vec::with_capacity(1024);
+                    app.write_help(&mut b).unwrap();
+                    b.push(b'\n');
+                    stdout.write_all(b.as_slice()).await?;
+                    true
+                }
+            };
+
+            if !cont {
                 break;
             }
+
+            stdout.write_all(b"> ").await?;
+            stdout.flush().await?;
         }
         Ok(())
+    }
+
+    async fn info(&self) -> String {
+        let mut b = String::with_capacity(1024);
+
+        {
+            let g = self.gain.read().await;
+            writeln!(b, "gain: {}", g).unwrap();
+        }
+
+        writeln!(b, "rx addr: {}", self.rx_addr).unwrap();
+
+        {
+            for (i, t) in self.tx_addrs.read().await.iter().enumerate() {
+                writeln!(b, "tx addr[{}]: {}", i, t).unwrap();
+            }
+        }
+
+        b
     }
 }
