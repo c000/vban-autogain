@@ -16,6 +16,7 @@ use tokio::{
 };
 
 use super::gain;
+use super::repl;
 use crate::vban;
 
 pub struct Runner {
@@ -87,42 +88,42 @@ impl Runner {
     }
 
     pub async fn repl(&self) -> io::Result<()> {
-        let app = clap::App::new("")
-            .subcommand(clap::SubCommand::with_name("exit"))
-            .subcommand(clap::SubCommand::with_name("info"));
+        let mut repl = repl::App::new();
 
         let mut lines = tokio::io::BufReader::new(tokio::io::stdin()).lines();
         let mut stdout = tokio::io::stdout();
 
-        stdout.write_all(b"> ").await?;
-        stdout.flush().await?;
-        while let Some(line) = lines.next_line().await? {
-            let words = shell_words::split(line.as_ref()).expect("Failed to split repl words");
-            let matches = app
-                .clone()
-                .get_matches_from(std::iter::once(String::new()).chain(words));
-
-            let cont = match matches.subcommand() {
-                ("exit", _) => false,
-                ("info", _) => {
-                    stdout.write_all(self.info().await.as_bytes()).await?;
-                    true
-                }
-                _ => {
-                    let mut b = Vec::with_capacity(1024);
-                    app.write_help(&mut b).unwrap();
-                    b.push(b'\n');
-                    stdout.write_all(b.as_slice()).await?;
-                    true
-                }
-            };
-
-            if !cont {
-                break;
-            }
-
+        loop {
             stdout.write_all(b"> ").await?;
             stdout.flush().await?;
+
+            if let Some(line) = lines.next_line().await? {
+                let command = repl.parse_command(line.as_ref())?;
+
+                let cont = match command {
+                    repl::Command::Nop => true,
+                    repl::Command::Help => {
+                        stdout.write_all(repl.help()).await?;
+                        true
+                    }
+                    repl::Command::Exit => false,
+                    repl::Command::Info => {
+                        stdout.write_all(self.info().await.as_bytes()).await?;
+                        true
+                    }
+                    repl::Command::Error(mut e) => {
+                        writeln!(e).unwrap();
+                        stdout.write_all(e.as_bytes()).await?;
+                        true
+                    }
+                };
+
+                if !cont {
+                    break;
+                }
+            } else {
+                break;
+            }
         }
         Ok(())
     }

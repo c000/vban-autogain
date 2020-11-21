@@ -1,4 +1,5 @@
 mod gain;
+mod repl;
 mod runner;
 
 use std::io::Result;
