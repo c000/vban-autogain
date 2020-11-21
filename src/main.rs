@@ -29,7 +29,6 @@ fn main() {
                 .short("r")
                 .long("remote")
                 .help("Remote address")
-                .required(true)
                 .multiple(true)
                 .takes_value(true)
                 .validator(socket_addrs_validator),
@@ -52,7 +51,7 @@ fn main() {
     let rx_addr = matches.value_of("listen").unwrap();
     let tx_addrs = matches
         .values_of("remote")
-        .unwrap()
+        .unwrap_or(clap::Values::default())
         .collect::<std::boxed::Box<[_]>>();
     let gain_db = f32::from_str(matches.value_of("gain").unwrap()).unwrap();
     let gain = (10.0 as f32).powf(gain_db / 20.0);

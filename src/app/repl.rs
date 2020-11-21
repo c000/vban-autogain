@@ -1,10 +1,12 @@
-use std::fmt::Write;
+use std::{fmt::Write, net::ToSocketAddrs};
 
 pub enum Command {
     Nop,
     Help,
     Exit,
     Info,
+    Rm(usize),
+    Add(String),
     Error(String),
 }
 
@@ -18,7 +20,23 @@ impl App<'_> {
         let app = clap::App::new("")
             .subcommand(clap::SubCommand::with_name("help"))
             .subcommand(clap::SubCommand::with_name("exit"))
-            .subcommand(clap::SubCommand::with_name("info"));
+            .subcommand(clap::SubCommand::with_name("info"))
+            .subcommand(
+                clap::SubCommand::with_name("rm").about("remove tx").arg(
+                    clap::Arg::with_name("index")
+                        .required(true)
+                        .takes_value(true)
+                        .validator(|v| v.parse::<usize>().map(|_| ()).map_err(|e| e.to_string())),
+                ),
+            )
+            .subcommand(
+                clap::SubCommand::with_name("add").about("add tx").arg(
+                    clap::Arg::with_name("addr")
+                        .required(true)
+                        .takes_value(true)
+                        .validator(|v| v.to_socket_addrs().map(|_| ()).map_err(|e| e.to_string())),
+                ),
+            );
 
         let help = get_help_vec(&app);
 
@@ -42,6 +60,14 @@ impl App<'_> {
                 ("help", _) => Ok(Command::Help),
                 ("exit", _) => Ok(Command::Exit),
                 ("info", _) => Ok(Command::Info),
+                ("rm", Some(args)) => {
+                    let index = args.value_of("index").unwrap().parse::<usize>().unwrap();
+                    Ok(Command::Rm(index))
+                }
+                ("add", Some(args)) => {
+                    let addr = args.value_of("addr").unwrap();
+                    Ok(Command::Add(addr.to_string()))
+                }
                 _ => Ok(Command::Nop),
             },
         }

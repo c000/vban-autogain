@@ -111,6 +111,19 @@ impl Runner {
                         stdout.write_all(self.info().await.as_bytes()).await?;
                         true
                     }
+                    repl::Command::Rm(index) => {
+                        let mut tx_vec = self.tx_addrs.write().await;
+                        if index < (*tx_vec).len() {
+                            (*tx_vec).remove(index);
+                        }
+                        true
+                    }
+                    repl::Command::Add(addr) => {
+                        if let Some(error) = self.add_tx_addrs(addr).await.err() {
+                            stdout.write_all(error.to_string().as_bytes()).await?;
+                        }
+                        true
+                    }
                     repl::Command::Error(mut e) => {
                         writeln!(e).unwrap();
                         stdout.write_all(e.as_bytes()).await?;
