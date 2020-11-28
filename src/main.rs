@@ -54,7 +54,7 @@ fn main() {
         .unwrap_or(clap::Values::default())
         .collect::<std::boxed::Box<[_]>>();
     let gain_db = f32::from_str(matches.value_of("gain").unwrap()).unwrap();
-    let gain = (10.0 as f32).powf(gain_db / 20.0);
+    let gain = 10.0_f32.powf(gain_db / 20.0_f32);
 
     app::main(rx_addr, tx_addrs.as_ref(), gain).unwrap();
 }
