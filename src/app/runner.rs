@@ -22,7 +22,7 @@ use crate::vban;
 pub struct Runner {
     rx_addr: SocketAddr,
     tx_addrs: Arc<RwLock<Vec<SocketAddr>>>,
-    gain_per_sample: f32,
+    gain_per_sample: Arc<RwLock<f32>>,
 
     gain: Arc<RwLock<f32>>,
 }
@@ -39,7 +39,7 @@ impl Runner {
         Ok(Runner {
             rx_addr: rx_addr,
             tx_addrs: Arc::new(RwLock::new(Vec::new())),
-            gain_per_sample: g,
+            gain_per_sample: Arc::new(RwLock::new(g)),
 
             gain: Arc::new(RwLock::new(1.0)),
         })
@@ -65,7 +65,7 @@ impl Runner {
         let tx_addrs = self.tx_addrs.clone();
         let mut buf = [0; 1500];
 
-        let gain_per_sample = self.gain_per_sample;
+        let gain_per_sample = self.gain_per_sample.clone();
         let gain = self.gain.clone();
 
         Ok(task::spawn(async move {
@@ -74,8 +74,9 @@ impl Runner {
                 {
                     let v = vban::VbanPacket::from_mut_slice(&mut buf[..n]).unwrap();
                     if v.vban_header.data_type() == vban::DataType::I16 {
+                        let gps = gain_per_sample.read().await;
                         let mut g = gain.write().await;
-                        gain::auto_gain_i16(v.vban_data, gain_per_sample, &mut *g);
+                        gain::auto_gain_i16(v.vban_data, *gps, &mut *g);
                     } else {
                         println!("Invalid format type {:?}", v.vban_header.data_type());
                     }
@@ -124,6 +125,11 @@ impl Runner {
                         }
                         true
                     }
+                    repl::Command::SetGain(gain) => {
+                        let mut g = self.gain_per_sample.write().await;
+                        *g = gain;
+                        true
+                    }
                     repl::Command::Error(mut e) => {
                         writeln!(e).unwrap();
                         stdout.write_all(e.as_bytes()).await?;
@@ -148,6 +154,12 @@ impl Runner {
             let g = self.gain.read().await;
             let db = 20.0 * g.log10();
             writeln!(b, "gain: {} ({} dB)", g, db).unwrap();
+        }
+
+        {
+            let g = self.gain_per_sample.read().await;
+            let db = 20.0 * g.log10();
+            writeln!(b, "gain per sample: {} ({} dB)", g, db).unwrap();
         }
 
         writeln!(b, "rx addr: {}", self.rx_addr).unwrap();
