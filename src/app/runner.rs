@@ -146,7 +146,8 @@ impl Runner {
 
         {
             let g = self.gain.read().await;
-            writeln!(b, "gain: {}", g).unwrap();
+            let db = 20.0 * g.log10();
+            writeln!(b, "gain: {} ({} dB)", g, db).unwrap();
         }
 
         writeln!(b, "rx addr: {}", self.rx_addr).unwrap();
