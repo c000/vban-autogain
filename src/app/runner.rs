@@ -175,6 +175,12 @@ impl Runner {
             writeln!(b, "gain per sample: {} ({} dB)", g, db).unwrap();
         }
 
+        {
+            let g = self.gain_max.read().await;
+            let db = 20.0 * g.log10();
+            writeln!(b, "gain max: {} ({} dB)", g, db).unwrap();
+        }
+
         writeln!(b, "rx addr: {}", self.rx_addr).unwrap();
 
         {
