@@ -6,11 +6,11 @@ use std::io::Result;
 use std::net::ToSocketAddrs;
 use tokio::runtime;
 
-pub fn main<T>(rx_addr: T, tx_addrs: &[T], gain: f32) -> Result<()>
+pub fn main<T>(rx_addr: T, tx_addrs: &[T], gain: f32, gain_max: f32) -> Result<()>
 where
     T: ToSocketAddrs,
 {
-    let r = runner::Runner::new(rx_addr, gain)?;
+    let r = runner::Runner::new(rx_addr, gain, gain_max)?;
 
     let rt = runtime::Builder::new_current_thread().enable_io().build()?;
 

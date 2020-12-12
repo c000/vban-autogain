@@ -23,12 +23,13 @@ pub struct Runner {
     rx_addr: SocketAddr,
     tx_addrs: Arc<RwLock<Vec<SocketAddr>>>,
     gain_per_sample: Arc<RwLock<f32>>,
+    gain_max: Arc<RwLock<f32>>,
 
     gain: Arc<RwLock<f32>>,
 }
 
 impl Runner {
-    pub fn new<T>(a: T, g: f32) -> io::Result<Runner>
+    pub fn new<T>(a: T, g: f32, m: f32) -> io::Result<Runner>
     where
         T: ToSocketAddrs,
     {
@@ -40,6 +41,7 @@ impl Runner {
             rx_addr: rx_addr,
             tx_addrs: Arc::new(RwLock::new(Vec::new())),
             gain_per_sample: Arc::new(RwLock::new(g)),
+            gain_max: Arc::new(RwLock::new(m)),
 
             gain: Arc::new(RwLock::new(1.0)),
         })
@@ -66,6 +68,7 @@ impl Runner {
         let mut buf = [0; 1500];
 
         let gain_per_sample = self.gain_per_sample.clone();
+        let gain_max = self.gain_max.clone();
         let gain = self.gain.clone();
 
         Ok(task::spawn(async move {
@@ -77,6 +80,11 @@ impl Runner {
                         let gps = gain_per_sample.read().await;
                         let mut g = gain.write().await;
                         gain::auto_gain_i16(v.vban_data, *gps, &mut *g);
+
+                        let m = gain_max.read().await;
+                        if 0.0 < *m {
+                            *g = (*g).min(*m);
+                        }
                     } else {
                         println!("Invalid format type {:?}", v.vban_header.data_type());
                     }

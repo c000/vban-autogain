@@ -46,6 +46,18 @@ fn main() {
                         .map_err(|e| e.to_string())
                 }),
         )
+        .arg(
+            Arg::with_name("gain_max")
+                .long("gain-max")
+                .help("Maximum gain")
+                .default_value("256")
+                .takes_value(true)
+                .validator(|s| {
+                    f32::from_str(s.as_str())
+                        .map(|_| ())
+                        .map_err(|e| e.to_string())
+                }),
+        )
         .get_matches();
 
     let rx_addr = matches.value_of("listen").unwrap();
@@ -53,8 +65,11 @@ fn main() {
         .values_of("remote")
         .unwrap_or(clap::Values::default())
         .collect::<std::boxed::Box<[_]>>();
+
     let gain_db = f32::from_str(matches.value_of("gain").unwrap()).unwrap();
     let gain = 10.0_f32.powf(gain_db / 20.0_f32);
 
-    app::main(rx_addr, tx_addrs.as_ref(), gain).unwrap();
+    let gain_max = f32::from_str(matches.value_of("gain_max").unwrap()).unwrap();
+
+    app::main(rx_addr, tx_addrs.as_ref(), gain, gain_max).unwrap();
 }
