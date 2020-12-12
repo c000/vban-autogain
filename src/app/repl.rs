@@ -7,6 +7,7 @@ pub enum Command {
     Info,
     Rm(usize),
     Add(String),
+    SetGain(f32),
     Error(String),
 }
 
@@ -36,6 +37,16 @@ impl App<'_> {
                         .takes_value(true)
                         .validator(|v| v.to_socket_addrs().map(|_| ()).map_err(|e| e.to_string())),
                 ),
+            )
+            .subcommand(
+                clap::SubCommand::with_name("gain")
+                    .about("set gain per sample (in dB)")
+                    .arg(
+                        clap::Arg::with_name("gain")
+                            .required(true)
+                            .takes_value(true)
+                            .validator(|v| v.parse::<f32>().map(|_| ()).map_err(|e| e.to_string())),
+                    ),
             );
 
         let help = get_help_vec(&app);
@@ -67,6 +78,11 @@ impl App<'_> {
                 ("add", Some(args)) => {
                     let addr = args.value_of("addr").unwrap();
                     Ok(Command::Add(addr.to_string()))
+                }
+                ("gain", Some(args)) => {
+                    let gain = args.value_of("gain").unwrap().parse::<f32>().unwrap();
+                    let gain_in_db = 10.0_f32.powf(gain / 20.0_f32);
+                    Ok(Command::SetGain(gain_in_db))
                 }
                 _ => Ok(Command::Nop),
             },
