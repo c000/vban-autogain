@@ -8,6 +8,7 @@ pub enum Command {
     Rm(usize),
     Add(String),
     SetGain(f32),
+    SetGainMax(f32),
     Error(String),
 }
 
@@ -43,6 +44,16 @@ impl App<'_> {
                     .about("set gain per sample (in dB)")
                     .arg(
                         clap::Arg::with_name("gain")
+                            .required(true)
+                            .takes_value(true)
+                            .validator(|v| v.parse::<f32>().map(|_| ()).map_err(|e| e.to_string())),
+                    ),
+            )
+            .subcommand(
+                clap::SubCommand::with_name("max")
+                    .about("set maximum gain")
+                    .arg(
+                        clap::Arg::with_name("gain_max")
                             .required(true)
                             .takes_value(true)
                             .validator(|v| v.parse::<f32>().map(|_| ()).map_err(|e| e.to_string())),
@@ -83,6 +94,10 @@ impl App<'_> {
                     let gain = args.value_of("gain").unwrap().parse::<f32>().unwrap();
                     let gain_in_db = 10.0_f32.powf(gain / 20.0_f32);
                     Ok(Command::SetGain(gain_in_db))
+                }
+                ("max", Some(args)) => {
+                    let gain_max = args.value_of("gain_max").unwrap().parse::<f32>().unwrap();
+                    Ok(Command::SetGainMax(gain_max))
                 }
                 _ => Ok(Command::Nop),
             },
