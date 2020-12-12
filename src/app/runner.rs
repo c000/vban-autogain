@@ -138,6 +138,11 @@ impl Runner {
                         *g = gain;
                         true
                     }
+                    repl::Command::SetGainMax(gain_max) => {
+                        let mut m = self.gain_max.write().await;
+                        *m = gain_max;
+                        true
+                    }
                     repl::Command::Error(mut e) => {
                         writeln!(e).unwrap();
                         stdout.write_all(e.as_bytes()).await?;
